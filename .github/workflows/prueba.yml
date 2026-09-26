@@ -5,6 +5,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Comparar secret con variable local
+        shell: pwsh
         env:
           TOKEN: ${{ secrets.DEV_TOKEN }}
         run: |
