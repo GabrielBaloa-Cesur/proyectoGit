@@ -1,0 +1,49 @@
+name: CD Pipeline (Main)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Incrementar AppVersion en README.md
+        run: |
+          # Busca el último número de AppVersion en el archivo, si no hay asume 0
+          LAST_VERSION=$(grep -oP 'AppVersion-\K\d+' README.md | tail -1 || echo "0")
+          NEW_VERSION=$((LAST_VERSION + 1))
+          FECHA=$(date '+%Y-%m-%d %H:%M:%S')
+          
+          echo "AppVersion-$NEW_VERSION - $FECHA" >> README.md
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: bump version to AppVersion-$NEW_VERSION [skip ci]" || echo "No hay cambios"
+          git push
+
+  validate-prod:
+    needs: bump-version
+    runs-on: self-hosted
+    steps:
+      - name: Validar PROD Token
+        shell: pwsh
+        env:
+          TOKEN: ${{ secrets.PROD_TOKEN }}
+        run: |
+          if ($env:TOKEN -eq $env:LOCAL_PROD_TOKEN) {
+              Write-Host "Coinciden los PROD Tokens"
+          } else {
+              Write-Host "No coinciden X"
+              exit 1
+          }
